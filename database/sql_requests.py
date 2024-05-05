@@ -13,20 +13,26 @@ class Users(SQLModel, table=True):
     surname: str
 
 
-class Feedback(SQLModel, table=True):
+class Calendar(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int
-    description: str
-    creation_date: str
+    day: int
+    quantity_order: str
+    actively: bool
+    month: int
 
 
-class Notes(SQLModel, table=True):
+class Orders(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int
-    date: str
-    nate: str
     creation_date: str
-    sticker: str
+    active: bool
+    job: str
+    price: str
+    refusal: bool
+    rejection_reason: str
+    number_phone: str
+    order_date: str
+    time: str
 
 
 class Notebook(SQLModel, table=True):

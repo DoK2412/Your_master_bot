@@ -12,6 +12,14 @@ class User:
         self.user_id_db: int = None
         self.rights: bool = None
         self.user_id_rights: int = None
+        self.day = None
+        self.calendar = None
+        self.bloc_day = False
+        self.adding_order = False
+        self.time = None
+        self.number = None
+        self.transfer = False
+        self.order_id_transfer = None
 
     @classmethod
     def get_user(cls, telegram_id, tag, name, surname):
