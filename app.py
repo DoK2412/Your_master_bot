@@ -1,7 +1,7 @@
 import telegram_bot_calendar
 from telebot import TeleBot, types
 
-from setting import bot_token, list_commands
+from setting import bot_token
 from user_data import User
 
 from servise.auxiliaryFunctions import WorcUser, AdminPanel, UserPanel
@@ -42,7 +42,7 @@ def start_bot_worc(message):
         button_2 = types.KeyboardButton('Изменить количество заявок')
         # button_3 = types.KeyboardButton('Уменьшение количества заявок')
         button_4 = types.KeyboardButton('Отметить заявку как выполненную')
-        button_5 = types.KeyboardButton('Отмениить заявку')
+        button_5 = types.KeyboardButton('Отменить заявку')
         button_6 = types.KeyboardButton('Перенос заявки')
         button_7 = types.KeyboardButton('Блокировка дня')
         button_8 = types.KeyboardButton('Разблокировка дня')
@@ -94,6 +94,19 @@ def bot_message(message):
             AdminPanel(user, bot, message).change_number_orders()
         elif message.text == 'Разблокировка дня':
             AdminPanel(user, bot, message).unblocking_day()
+        elif message.text == 'Просмотр заявок':
+            AdminPanel(user, bot, message).viewing_applications()
+        elif message.text == 'Отметить заявку как выполненную':
+            AdminPanel(user, bot, message).fulfillment_request()
+        elif message.text == 'Отменить заявку':
+            AdminPanel(user, bot, message).cancellation_application()
+        elif message.text == 'Перенос заявки':
+            AdminPanel(user, bot, message).transfer_application()
+
+
+
+
+
 
 
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
@@ -116,10 +129,13 @@ def processing_day_month(message):
         bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).change_number_orders(date=result, month=False))
     elif user.calendar == 2:
         bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).bloc_day(date=result))
+    if user.transfer_date:
+        bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).transfer_date(date=result, month=False))
     if user.adding_order:
         bot.register_next_step_handler(message.message, UserPanel(user, bot, message).add_order(date=result))
     if user.transfer:
         bot.register_next_step_handler(message.message, UserPanel(user, bot, message).add_new_date(date=result))
+
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -136,6 +152,10 @@ def entry_database(message):
         user.transfer = False
         user.time = message.data
         UserPanel(user, bot, message).completion_transfer()
+    elif user.transfer_date:
+        user.transfer_date = False
+        user.time = message.data
+        AdminPanel(user, bot, message).completion_transfer()
 
 
 if __name__ == '__main__':

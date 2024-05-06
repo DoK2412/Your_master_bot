@@ -20,6 +20,9 @@ class User:
         self.number = None
         self.transfer = False
         self.order_id_transfer = None
+        self.id_application_refusal = None
+        self.transfer_date = False
+        self.id_transfer_request = None
 
     @classmethod
     def get_user(cls, telegram_id, tag, name, surname):
