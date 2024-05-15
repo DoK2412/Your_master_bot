@@ -6,7 +6,6 @@ from user_data import User
 
 from servise.auxiliaryFunctions import WorcUser, AdminPanel, UserPanel
 from servise.returnText import text_user, not_registered_text, admin_text
-# from servise.calendar import get_days_for_calendar
 from telegram_bot_calendar import WYearTelegramCalendar
 
 import datetime
@@ -40,7 +39,7 @@ def start_bot_worc(message):
     elif user.rights == 'admin':
         button_1 = types.KeyboardButton('Просмотр заявок')
         button_2 = types.KeyboardButton('Изменить количество заявок')
-        # button_3 = types.KeyboardButton('Уменьшение количества заявок')
+        button_3 = types.KeyboardButton('Статистика работ')
         button_4 = types.KeyboardButton('Отметить заявку как выполненную')
         button_5 = types.KeyboardButton('Отменить заявку')
         button_6 = types.KeyboardButton('Перенос заявки')
@@ -49,7 +48,7 @@ def start_bot_worc(message):
         button_9 = types.KeyboardButton('Изменить права')
 
         markup.add(button_1, button_6)
-        markup.add(button_2)
+        markup.add(button_2, button_3)
         markup.add(button_4, button_5)
         markup.add(button_7, button_8)
         markup.add(button_9)
@@ -102,6 +101,8 @@ def bot_message(message):
             AdminPanel(user, bot, message).cancellation_application()
         elif message.text == 'Перенос заявки':
             AdminPanel(user, bot, message).transfer_application()
+        elif message.text == 'Статистика работ':
+            AdminPanel(user, bot, message).first_day_statistics()
 
 
 
@@ -111,14 +112,7 @@ def bot_message(message):
 
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
 def processing_day_month(message):
-
-    # if self.text in list_commands:
-    #     UserPanel.redirection(self)
-    #     breakpoint()
-    # else:
     user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
-    # if user.day is False:
-    #     day = get_days_for_calendar(message.data, user)
     result, key, step = WYearTelegramCalendar(calendar_id=1, locale='ru', min_date=datetime.date.today()).process(
         message.data)
     bot.edit_message_text('Выберите дату.',
@@ -131,10 +125,26 @@ def processing_day_month(message):
         bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).bloc_day(date=result))
     if user.transfer_date:
         bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).transfer_date(date=result, month=False))
+    if user.statistics_one:
+        bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).first_day_statistics(date=result, month=False))
     if user.adding_order:
         bot.register_next_step_handler(message.message, UserPanel(user, bot, message).add_order(date=result))
     if user.transfer:
         bot.register_next_step_handler(message.message, UserPanel(user, bot, message).add_new_date(date=result))
+
+
+@bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=2))
+def processing_day_month(message):
+    user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
+    result, key, step = WYearTelegramCalendar(calendar_id=2, locale='ru', min_date=datetime.date.today()).process(
+        message.data)
+    bot.edit_message_text('Выберите дату.',
+                          message.message.chat.id,
+                          message.message.message_id,
+                          reply_markup=key)
+    if user.statistics_two:
+        bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).two_day_statistics(date=result, month=False))
+
 
 
 

@@ -1,5 +1,4 @@
 import datetime
-import re
 import requests
 
 
@@ -11,7 +10,7 @@ from servise.calendar import get_year
 from setting import list_time
 
 from telebot import types
-from setting import bot_token, user_id, list_commands_user, list_commands_admin
+from setting import bot_token, list_commands_user, list_commands_admin
 
 
 
@@ -93,21 +92,29 @@ class AdminPanel(object):
             self.bot.register_next_step_handler(self.message, AdminPanel.update_rights)
 
     def update_rights(self):
-        data_us = self.text.split()
-        if data_us[1] not in ['admin', 'user']:
-            AdminPanel.bot.send_message(self.from_user.id,
-                                        "Указаны неверные права.\nПовторите ввод.")
-            AdminPanel.bot.register_next_step_handler(AdminPanel.message, AdminPanel.update_rights)
+        if self.text in list_commands_admin:
+            AdminPanel.redirection(self)
         else:
-            with Session(engin) as session:
-                user_view = session.exec(
-                    select(Users).where(Users.id == data_us[0])).one()
-                user_view.rights = data_us[1]
-                session.add(user_view)
-                session.commit()
-                session.refresh(user_view)
-            AdminPanel.bot.send_message(self.from_user.id,
-                                  "Права изменены.")
+            data_us = self.text.split()
+            if len(data_us) < 2 or data_us[1] not in ['admin', 'user']:
+                AdminPanel.bot.send_message(self.from_user.id,
+                                            "Указаны неверные права.\nПовторите ввод.")
+                AdminPanel.bot.register_next_step_handler(AdminPanel.message, AdminPanel.update_rights)
+            else:
+                with Session(engin) as session:
+                    user_view = session.exec(
+                        select(Users).where(Users.id == data_us[0])).one()
+                    if user_view.telegram_id == self.from_user.id:
+                        AdminPanel.bot.send_message(self.from_user.id,
+                                                    "Вы не можете изменить права себе.")
+                        AdminPanel.bot.register_next_step_handler(AdminPanel.message, AdminPanel.update_rights)
+                    else:
+                        user_view.rights = data_us[1]
+                        session.add(user_view)
+                        session.commit()
+                        session.refresh(user_view)
+                        AdminPanel.bot.send_message(self.from_user.id,
+                                              "Права изменены.")
 
     def change_number_orders(self, date=None, month=True):
         """изменение количества заказов в день"""
@@ -205,14 +212,13 @@ class AdminPanel(object):
     def closing_application(self):
         if self.text in list_commands_admin:
             AdminPanel.redirection(self)
-            # breakpoint()
         else:
             order_data = self.text.split()
             with Session(engin) as session:
                 order = session.exec(select(Orders).where(Orders.id == order_data[0])).one()
                 order.active = False
                 if len(order_data) == 2:
-                    order.price = order_data[1]
+                    order.price = int(order_data[1])
                 else:
                     order.price = 0
                 session.add(order)
@@ -279,39 +285,42 @@ class AdminPanel(object):
         self.bot.register_next_step_handler(self.message, AdminPanel.transfer_date)
 
     def transfer_date(self, month=True, date=None):
-        if month:
-            AdminPanel.user.transfer_date = True
-            AdminPanel.user.id_transfer_request = self.text
-            get_year(AdminPanel.bot, AdminPanel.message)
-        if date:
-            AdminPanel.user.day = date.strftime("%d.%m.%Y")
-            with Session(engin) as session:
-                day = session.exec(select(Calendar).where(Calendar.day == AdminPanel.user.day)).one()
-                order = session.exec(select(Orders).where(Orders.order_date == AdminPanel.user.day, Orders.active == True)).all()
-                if day.quantity_order <= len(order):
-                    self.bot.send_message(self.message.from_user.id, "К сожалению на этот день нет свободных мест.")
-                elif len(order) == 0:
-                    markup = types.InlineKeyboardMarkup()
+        if self.text in list_commands_user:
+            UserPanel.redirection(self)
+        else:
+            if month:
+                AdminPanel.user.transfer_date = True
+                AdminPanel.user.id_transfer_request = self.text
+                get_year(AdminPanel.bot, AdminPanel.message)
+            if date:
+                AdminPanel.user.day = date.strftime("%d.%m.%Y")
+                with Session(engin) as session:
+                    day = session.exec(select(Calendar).where(Calendar.day == AdminPanel.user.day)).one()
+                    order = session.exec(select(Orders).where(Orders.order_date == AdminPanel.user.day, Orders.active == True)).all()
+                    if day.quantity_order <= len(order):
+                        self.bot.send_message(self.message.from_user.id, "К сожалению на этот день нет свободных мест.")
+                    elif len(order) == 0:
+                        markup = types.InlineKeyboardMarkup()
 
-                    for time in list_time:
-                        markup.add(types.InlineKeyboardButton(text=time,
-                                                              callback_data=time))
-                    self.bot.send_message(self.message.from_user.id,
-                                          "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
-                                          reply_markup=markup)
-                elif len(order) > 0 and len(order) < day.quantity_order:
-                    for i_order in order:
-                        if i_order.time in list_time:
-                            list_time.remove(i_order.time)
-                            continue
-                    markup = types.InlineKeyboardMarkup()
-                    for time in list_time:
-                        markup.add(types.InlineKeyboardButton(text=time,
-                                                              callback_data=time))
+                        for time in list_time:
+                            markup.add(types.InlineKeyboardButton(text=time,
+                                                                  callback_data=time))
+                        self.bot.send_message(self.message.from_user.id,
+                                              "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
+                                              reply_markup=markup)
+                    elif len(order) > 0 and len(order) < day.quantity_order:
+                        for i_order in order:
+                            if i_order.time in list_time:
+                                list_time.remove(i_order.time)
+                                continue
+                        markup = types.InlineKeyboardMarkup()
+                        for time in list_time:
+                            markup.add(types.InlineKeyboardButton(text=time,
+                                                                  callback_data=time))
 
-                    self.bot.send_message(self.message.from_user.id,
-                                          "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
-                                          reply_markup=markup)
+                        self.bot.send_message(self.message.from_user.id,
+                                              "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
+                                              reply_markup=markup)
 
     def completion_transfer(self):
 
@@ -335,6 +344,44 @@ class AdminPanel(object):
 
             AdminPanel.bot.send_message(AdminPanel.message.from_user.id,
                                         f"Заявка № {order.id} перенесена.")
+
+    def first_day_statistics(self, month=True, date=None):
+        AdminPanel.bot = self.bot
+        AdminPanel.user = self.user
+        AdminPanel.message = self.message
+        if month:
+            self.user.statistics_one = True
+            self.bot.send_message(self.message.from_user.id, "Введите дату начала выборки.")
+            get_year(self.bot, self.message)
+        if date:
+            self.bot.delete_message(self.message.from_user.id, self.message.message.message_id)
+            self.user.day_one_statistics = date.strftime("%d.%m.%Y")
+            AdminPanel.two_day_statistics(self, month=True,  date=None)
+
+    def two_day_statistics(self, month=True, date=None):
+        if month:
+            self.bot.send_message(self.message.from_user.id, "Введите дату окончания выборки.")
+            self.user.statistics_two = True
+            get_year(self.bot, self.message, calendar_id=2)
+        if date:
+            self.user.day_two_statistics = date.strftime("%d.%m.%Y")
+            AdminPanel.x(self)
+
+
+    def x(self):
+        with Session(engin) as session:
+            order = session.exec(select(Orders).where(Orders.order_date >= '05.05.2024', Orders.order_date <= '31.05.2024')).all()
+            # self.user.day_one_statistics
+            # self.user.day_two_statistics
+            print(order)
+            price = 0
+        for i in order:
+            print(i)
+            if isinstance(i.price, int):
+                price += i.price
+            else:
+                price += 0
+        self.bot.send_message(self.message.from_user.id, f"В период с {self.user.day_one_statistics} до {self.user.day_two_statistics} заработано: {price}")
 
     def redirection(self):
 
@@ -422,7 +469,6 @@ class UserPanel(object):
     def add_number_phone(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
-            # breakpoint()
         else:
             UserPanel.user.number = self.text
             UserPanel.bot.send_message(UserPanel.message.from_user.id, "Опишите какую работу необходимо выполнить")
@@ -431,7 +477,6 @@ class UserPanel(object):
     def description_work(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
-            # breakpoint()
         else:
             date = datetime.datetime.now()
 
@@ -466,7 +511,6 @@ class UserPanel(object):
     def cancellation_application_db(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
-            # breakpoint()
         else:
             with Session(engin) as session:
                 cancellation = session.exec(select(Orders).where(Orders.id == self.text)).one()
@@ -504,7 +548,6 @@ class UserPanel(object):
     def new_date(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
-            # breakpoint()
         else:
             UserPanel.user.transfer = True
             UserPanel.user.user_id_rights = self.text
