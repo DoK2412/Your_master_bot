@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from database.connection_db import engin
 from database.sql_requests import Users, Orders, Calendar
-from servise.calendar import get_year
+from servise.calendar import get_year, get_year_all
 from setting import list_time
 
 from telebot import types
@@ -213,14 +213,17 @@ class AdminPanel(object):
         if self.text in list_commands_admin:
             AdminPanel.redirection(self)
         else:
+            date = datetime.date.today()
             order_data = self.text.split()
             with Session(engin) as session:
                 order = session.exec(select(Orders).where(Orders.id == order_data[0])).one()
+                print(order)
                 order.active = False
                 if len(order_data) == 2:
                     order.price = int(order_data[1])
                 else:
                     order.price = 0
+                order.closing_date = date
                 session.add(order)
                 session.commit()
                 session.refresh(order)
@@ -285,42 +288,43 @@ class AdminPanel(object):
         self.bot.register_next_step_handler(self.message, AdminPanel.transfer_date)
 
     def transfer_date(self, month=True, date=None):
-        if self.text in list_commands_user:
-            UserPanel.redirection(self)
-        else:
-            if month:
-                AdminPanel.user.transfer_date = True
-                AdminPanel.user.id_transfer_request = self.text
-                get_year(AdminPanel.bot, AdminPanel.message)
-            if date:
-                AdminPanel.user.day = date.strftime("%d.%m.%Y")
-                with Session(engin) as session:
-                    day = session.exec(select(Calendar).where(Calendar.day == AdminPanel.user.day)).one()
-                    order = session.exec(select(Orders).where(Orders.order_date == AdminPanel.user.day, Orders.active == True)).all()
-                    if day.quantity_order <= len(order):
-                        self.bot.send_message(self.message.from_user.id, "К сожалению на этот день нет свободных мест.")
-                    elif len(order) == 0:
-                        markup = types.InlineKeyboardMarkup()
+        print(self)
+        # if self.text in list_commands_user:
+        #     UserPanel.redirection(self)
+        # else:
+        if month:
+            AdminPanel.user.transfer_date = True
+            AdminPanel.user.id_transfer_request = self.text
+            get_year(AdminPanel.bot, AdminPanel.message)
+        if date:
+            AdminPanel.user.day = date.strftime("%d.%m.%Y")
+            with Session(engin) as session:
+                day = session.exec(select(Calendar).where(Calendar.day == AdminPanel.user.day)).one()
+                order = session.exec(select(Orders).where(Orders.order_date == AdminPanel.user.day, Orders.active == True)).all()
+                if day.quantity_order <= len(order):
+                    self.bot.send_message(self.message.from_user.id, "К сожалению на этот день нет свободных мест.")
+                elif len(order) == 0:
+                    markup = types.InlineKeyboardMarkup()
 
-                        for time in list_time:
-                            markup.add(types.InlineKeyboardButton(text=time,
-                                                                  callback_data=time))
-                        self.bot.send_message(self.message.from_user.id,
-                                              "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
-                                              reply_markup=markup)
-                    elif len(order) > 0 and len(order) < day.quantity_order:
-                        for i_order in order:
-                            if i_order.time in list_time:
-                                list_time.remove(i_order.time)
-                                continue
-                        markup = types.InlineKeyboardMarkup()
-                        for time in list_time:
-                            markup.add(types.InlineKeyboardButton(text=time,
-                                                                  callback_data=time))
+                    for time in list_time:
+                        markup.add(types.InlineKeyboardButton(text=time,
+                                                              callback_data=time))
+                    self.bot.send_message(self.message.from_user.id,
+                                          "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
+                                          reply_markup=markup)
+                elif len(order) > 0 and len(order) < day.quantity_order:
+                    for i_order in order:
+                        if i_order.time in list_time:
+                            list_time.remove(i_order.time)
+                            continue
+                    markup = types.InlineKeyboardMarkup()
+                    for time in list_time:
+                        markup.add(types.InlineKeyboardButton(text=time,
+                                                              callback_data=time))
 
-                        self.bot.send_message(self.message.from_user.id,
-                                              "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
-                                              reply_markup=markup)
+                    self.bot.send_message(self.message.from_user.id,
+                                          "Выберите доапазон времени:\nВремя возможно скореектировать с мастером в зависимости от загруженности.",
+                                          reply_markup=markup)
 
     def completion_transfer(self):
 
@@ -352,31 +356,27 @@ class AdminPanel(object):
         if month:
             self.user.statistics_one = True
             self.bot.send_message(self.message.from_user.id, "Введите дату начала выборки.")
-            get_year(self.bot, self.message)
+            get_year_all(self.bot, self.message)
         if date:
             self.bot.delete_message(self.message.from_user.id, self.message.message.message_id)
-            self.user.day_one_statistics = date.strftime("%d.%m.%Y")
+            self.user.day_one_statistics = date
             AdminPanel.two_day_statistics(self, month=True,  date=None)
 
     def two_day_statistics(self, month=True, date=None):
         if month:
             self.bot.send_message(self.message.from_user.id, "Введите дату окончания выборки.")
             self.user.statistics_two = True
-            get_year(self.bot, self.message, calendar_id=2)
+            get_year_all(self.bot, self.message, calendar_id=2)
         if date:
-            self.user.day_two_statistics = date.strftime("%d.%m.%Y")
+            self.user.day_two_statistics = date
             AdminPanel.x(self)
 
 
     def x(self):
         with Session(engin) as session:
-            order = session.exec(select(Orders).where(Orders.order_date >= '05.05.2024', Orders.order_date <= '31.05.2024')).all()
-            # self.user.day_one_statistics
-            # self.user.day_two_statistics
-            print(order)
+            order = session.exec(select(Orders).where(Orders.closing_date >= self.user.day_one_statistics, Orders.closing_date <= self.user.day_two_statistics)).all()
             price = 0
         for i in order:
-            print(i)
             if isinstance(i.price, int):
                 price += i.price
             else:

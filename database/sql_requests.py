@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional
+from datetime import datetime
 
 
 class Users(SQLModel, table=True):
@@ -33,6 +34,7 @@ class Orders(SQLModel, table=True):
     number_phone: str
     order_date: str
     time: str
+    closing_date: datetime
 
 
 class Notebook(SQLModel, table=True):

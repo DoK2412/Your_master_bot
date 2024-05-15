@@ -113,8 +113,13 @@ def bot_message(message):
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
 def processing_day_month(message):
     user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
-    result, key, step = WYearTelegramCalendar(calendar_id=1, locale='ru', min_date=datetime.date.today()).process(
+    if user.statistics_one:
+        result, key, step = WYearTelegramCalendar(calendar_id=1, locale='ru').process(
         message.data)
+    else:
+        result, key, step = WYearTelegramCalendar(calendar_id=1, locale='ru', min_date=datetime.date.today()).process(
+        message.data)
+
     bot.edit_message_text('Выберите дату.',
                           message.message.chat.id,
                           message.message.message_id,
@@ -135,8 +140,9 @@ def processing_day_month(message):
 
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=2))
 def processing_day_month(message):
+    print(0)
     user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
-    result, key, step = WYearTelegramCalendar(calendar_id=2, locale='ru', min_date=datetime.date.today()).process(
+    result, key, step = WYearTelegramCalendar(calendar_id=2, locale='ru').process(
         message.data)
     bot.edit_message_text('Выберите дату.',
                           message.message.chat.id,
