@@ -217,7 +217,6 @@ class AdminPanel(object):
             order_data = self.text.split()
             with Session(engin) as session:
                 order = session.exec(select(Orders).where(Orders.id == order_data[0])).one()
-                print(order)
                 order.active = False
                 if len(order_data) == 2:
                     order.price = int(order_data[1])
@@ -283,15 +282,11 @@ class AdminPanel(object):
         AdminPanel.message = self.message
 
         self.bot.send_message(self.message.from_user.id,
-                              f"Введите номер Завки которую хотите перенести.")
+                              f"Введите номер заявки которую хотите перенести.")
         AdminPanel(self.user, self.bot, self.message).viewing_applications()
         self.bot.register_next_step_handler(self.message, AdminPanel.transfer_date)
 
     def transfer_date(self, month=True, date=None):
-        print(self)
-        # if self.text in list_commands_user:
-        #     UserPanel.redirection(self)
-        # else:
         if month:
             AdminPanel.user.transfer_date = True
             AdminPanel.user.id_transfer_request = self.text
@@ -327,27 +322,29 @@ class AdminPanel(object):
                                           reply_markup=markup)
 
     def completion_transfer(self):
+        if self.text in list_commands_user:
+            UserPanel.redirection(self)
+        else:
+            with Session(engin) as session:
+                order = session.exec(select(Orders).where(Orders.id == AdminPanel.user.id_transfer_request)).one()
+                date = order.order_date
+                time = order.time
+                order.order_date = AdminPanel.user.day
+                order.time = AdminPanel.user.time
 
-        with Session(engin) as session:
-            order = session.exec(select(Orders).where(Orders.id == AdminPanel.user.id_transfer_request)).one()
-            date = order.order_date
-            time = order.time
-            order.order_date = AdminPanel.user.day
-            order.time = AdminPanel.user.time
 
 
+                session.add(order)
+                session.commit()
+                session.refresh(order)
+                id_user = session.exec(select(Users.telegram_id).where(Users.id == order.user_id)).one()
 
-            session.add(order)
-            session.commit()
-            session.refresh(order)
-            id_user = session.exec(select(Users.telegram_id).where(Users.id == order.user_id)).one()
+                messeg = f'Мастер изменил сроки исполнения заказа № {order.id} - {order.job}.\nДата изменена с {date} на {order.order_date},\n Время изменено с {time} на {order.time}'
+                url = f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={id_user}&text={messeg}"
+                requests.get(url).json()
 
-            messeg = f'Мастер изменил сроки исполнения заказа № {order.id} - {order.job}.\nДата изменена с {date} на {order.order_date},\n Время изменено с {time} на {order.time}'
-            url = f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={id_user}&text={messeg}"
-            requests.get(url).json()
-
-            AdminPanel.bot.send_message(AdminPanel.message.from_user.id,
-                                        f"Заявка № {order.id} перенесена.")
+                AdminPanel.bot.send_message(AdminPanel.message.from_user.id,
+                                            f"Заявка № {order.id} перенесена.")
 
     def first_day_statistics(self, month=True, date=None):
         AdminPanel.bot = self.bot
@@ -369,10 +366,10 @@ class AdminPanel(object):
             get_year_all(self.bot, self.message, calendar_id=2)
         if date:
             self.user.day_two_statistics = date
-            AdminPanel.x(self)
+            AdminPanel.display_statistics(self)
 
+    def display_statistics(self):
 
-    def x(self):
         with Session(engin) as session:
             order = session.exec(select(Orders).where(Orders.closing_date >= self.user.day_one_statistics, Orders.closing_date <= self.user.day_two_statistics)).all()
             price = 0
@@ -403,6 +400,8 @@ class AdminPanel(object):
             AdminPanel(AdminPanel.user, AdminPanel.bot, AdminPanel.message).cancellation_application()
         elif self.text == 'Перенос заявки':
             AdminPanel(AdminPanel.user, AdminPanel.bot, AdminPanel.message).transfer_application()
+        elif self.text == 'Статистика работ':
+            AdminPanel(AdminPanel.user, AdminPanel.bot, AdminPanel.message).first_day_statistics()
 
 class UserPanel(object):
 

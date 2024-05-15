@@ -140,7 +140,6 @@ def processing_day_month(message):
 
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=2))
 def processing_day_month(message):
-    print(0)
     user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
     result, key, step = WYearTelegramCalendar(calendar_id=2, locale='ru').process(
         message.data)
