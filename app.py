@@ -1,7 +1,7 @@
 import telegram_bot_calendar
 from telebot import TeleBot, types
 
-from setting import bot_token
+from setting import bot_token, bot_token_test
 from user_data import User
 
 from servise.auxiliaryFunctions import WorcUser, AdminPanel, UserPanel
@@ -12,7 +12,7 @@ import datetime
 import time
 
 
-bot = TeleBot(bot_token)
+bot = TeleBot(bot_token_test)
 
 
 @bot.message_handler(commands=['start'])
@@ -105,11 +105,6 @@ def bot_message(message):
             AdminPanel(user, bot, message).first_day_statistics()
 
 
-
-
-
-
-
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
 def processing_day_month(message):
     user = User.get_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
@@ -149,8 +144,6 @@ def processing_day_month(message):
                           reply_markup=key)
     if user.statistics_two:
         bot.register_next_step_handler(message.message, AdminPanel(user, bot, message).two_day_statistics(date=result, month=False))
-
-
 
 
 @bot.callback_query_handler(func=lambda call: True)

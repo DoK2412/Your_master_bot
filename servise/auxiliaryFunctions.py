@@ -1,5 +1,6 @@
 import datetime
 import requests
+import re
 
 
 from sqlmodel import Session, select
@@ -462,37 +463,42 @@ class UserPanel(object):
                              '18:00-19:00']
 
     def passing_number_phone(self):
-        UserPanel.bot.send_message(UserPanel.message.from_user.id, "Введите Ваш номер телефона для связи с вами.")
+        UserPanel.bot.send_message(UserPanel.message.from_user.id, "Опишите какую работу необходимо выполнить.")
         UserPanel.bot.register_next_step_handler(self.message.message, UserPanel.add_number_phone)
 
     def add_number_phone(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
         else:
-            UserPanel.user.number = self.text
-            UserPanel.bot.send_message(UserPanel.message.from_user.id, "Опишите какую работу необходимо выполнить")
+            UserPanel.user.job = self.text
+            UserPanel.bot.send_message(UserPanel.message.from_user.id, "Введите Ваш номер телефона для связи с Вами.\nФормат нометра 89996662229")
             UserPanel.bot.register_next_step_handler(self, UserPanel.description_work)
 
     def description_work(self):
         if self.text in list_commands_user:
             UserPanel.redirection(self)
         else:
-            date = datetime.datetime.now()
+            if re.match(r'^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$', self.text) and self.text.isnumeric():
+                date = datetime.datetime.now()
 
-            with Session(engin) as session:
-                add_useer = Orders(user_id=UserPanel.user.user_id_db,
-                                   creation_date=str(date),
-                                   job=self.text,
-                                   active=True,
-                                   number_phone=UserPanel.user.number,
-                                   refusal=False,
-                                   order_date=UserPanel.user.day,
-                                   time=UserPanel.user.time)
-                session.add(add_useer)
-                session.commit()
+                with Session(engin) as session:
+                    add_useer = Orders(user_id=UserPanel.user.user_id_db,
+                                       creation_date=str(date),
+                                       job=UserPanel.user.job,
+                                       active=True,
+                                       number_phone=self.text,
+                                       refusal=False,
+                                       order_date=UserPanel.user.day,
+                                       time=UserPanel.user.time)
+                    session.add(add_useer)
+                    session.commit()
 
-            publicity(None, self.text, UserPanel.user.day, UserPanel.user.number, time=UserPanel.user.time, add=True)
-            UserPanel.bot.send_message(UserPanel.message.from_user.id, "Заявка принята, мастер свяжется с вами в ближайшее время.")
+                publicity(None, self.text, UserPanel.user.day, UserPanel.user.number, time=UserPanel.user.time, add=True)
+                UserPanel.bot.send_message(UserPanel.message.from_user.id, "Заявка принята, мастер свяжется с вами в ближайшее время.")
+            else:
+                UserPanel.bot.send_message(UserPanel.message.from_user.id, "Номер телефона введен не верно.\nПовторите ввод.")
+                UserPanel.add_number_phone(self)
+
 
     def cancellation_application(self):
         UserPanel.bot = self.bot

@@ -13,6 +13,7 @@ class User:
         self.rights: bool = None
         self.user_id_rights: int = None
         self.day = None
+        self.job = None
         self.calendar = None
         self.bloc_day = False
         self.adding_order = False
