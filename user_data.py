@@ -14,6 +14,7 @@ class User:
         self.statistics_start_date = None
         self.statistics_end_date = None
         self.user_rights_id = None
+        self.user.user_id_db = None
 
 
     @classmethod
